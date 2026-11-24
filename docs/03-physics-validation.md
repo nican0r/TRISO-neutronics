@@ -22,7 +22,7 @@ The fast group is excluded from the PASS/FAIL criteria: the kernel is a net sour
 
 The dominant self-shielding mechanism here is resonance self-shielding (Dancoff factor reduction of the effective U-238 resonance integral), not spatial flux depression. At r_kernel = 0.0175 cm, the particle radius is ~100× smaller than the thermal neutron mean free path in graphite (~2 cm), so spatial flux gradients within the particle are weak (<2%).
 
-**Energy deposition proxy.** The `heating-local` tally is correctly populated by the ENDF/B-VIII.0 library (which includes kerma coefficients). The fission rate in the kernel (4.95×10⁻¹ per source neutron) confirms that energy release is localised in the fuel — the lower-than-pure-U235 fission fraction (~0.85 for pure thermal U-235) reflects U-238 resonance capture competing with fission in the HALEU kernel.
+**Energy deposition proxy.** The `heating-local` tally is correctly populated by the ENDF/B-VIII.0 library (which includes kerma coefficients). The fission rate in the kernel (4.53×10⁻¹ per source neutron) confirms that energy release is localised in the fuel. The kernel fission-to-absorption ratio is 0.456 ± 0.001 over the full spectrum — well below the ~0.85 of pure thermal U-235 because U-238 resonance capture competes with fission in the HALEU kernel. Restricted to thermal neutrons (< 0.625 eV) the ratio is 0.823, reconstructed from the stored kernel spectrum rather than tallied directly (see `RESULTS.md`, *Kernel reaction rates*).
 
 ---
 

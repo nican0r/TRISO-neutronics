@@ -30,6 +30,46 @@ Produced with `python -m triso.run` using the configuration described below.
 > varies ±0.001–0.005 per geometry build. The target (0.30) is the
 > design value; exact particle count differs between runs.
 
+## Kernel reaction rates
+
+Fresh fuel, UCO kernel, per source neutron. Absorption = capture + fission.
+
+### Full spectrum (direct tally)
+
+From the `kernel reaction rates` tally in `statepoint.200.h5` (0–20 MeV, 150 active batches).
+
+| Score | Mean | Std. dev. | Relative |
+|---|---|---|---|
+| Fission | 4.525423 × 10⁻¹ | 7.63 × 10⁻⁴ | 0.17% |
+| Absorption | 9.923903 × 10⁻¹ | 1.20 × 10⁻³ | 0.12% |
+
+Fission / absorption: **0.4560 ± 0.0010** (capture-to-fission α = 1.193).
+Consistent with k-eff: 1.10184 / 0.45254 gives ν ≈ 2.435.
+
+### Thermal only, < 0.625 eV (reconstructed)
+
+Not a direct tally — the reaction-rate tally has no energy filter. Computed as
+thermal kernel flux × atom density × effective thermal cross section:
+
+- Thermal kernel flux from the 3-group flux tally in `statepoint.200.h5`: 0.18517 ± 0.00065.
+- Effective cross sections from the 100-group `kernel spectrum` tally in
+  `output/depletion/openmc_simulation_n0.h5` folded with 1200 K ENDF/B-VIII.0 data
+  (flat-in-lethargy within each group): Σ_f = 0.868 cm⁻¹, Σ_a = 1.055 cm⁻¹.
+
+| Score | Mean | Std. dev. | Relative |
+|---|---|---|---|
+| Fission | 1.6073 × 10⁻¹ | 6.3 × 10⁻⁴ | 0.39% |
+| Absorption | 1.9537 × 10⁻¹ | 7.6 × 10⁻⁴ | 0.39% |
+
+Fission / absorption: **0.823** (α = 0.215). Thermal neutrons account for ≈ 36% of
+kernel fissions and ≈ 20% of kernel absorptions.
+
+> **Note**: the standard deviations are statistical only. The within-group
+> cross-section averaging adds a method error of up to ~1%. Using the depletion
+> run's own thermal flux for the magnitude gives values 1.2% higher. The same
+> fold is not valid above the thermal range: 100 groups cannot resolve the
+> U-238 resonances (it gives 0.277 for the full-spectrum ratio vs 0.456 tallied).
+
 ## Depletion run (step-6)
 
 Produced with `python -m triso.depletion data/chain_endfb71_thermal.xml` from `output/depletion/`.
