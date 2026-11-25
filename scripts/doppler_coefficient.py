@@ -226,27 +226,31 @@ _T_ACCIDENT: float = 1873.0   # K — HTGR accident temperature (~1600 °C)
 
 
 def _plot_keff_and_ftc(ftc_store: list[dict], output_dir: Path) -> None:
-    """Single-panel figure: k-inf vs T for BOL and EOL."""
+    """Single-panel figure: reactivity [pcm] vs T for BOL and EOL.
+
+    The y-axis is in pcm and the x-axis in K, so the slope of each dashed line
+    is the FTC in pcm/K — the same weighted fit quoted in the legend.
+    """
     burn_colors = {'BOL': 'steelblue', 'EOL': 'firebrick'}
 
     fig, ax_k = plt.subplots(1, 1, figsize=(8, 5))
 
     for data in ftc_store:
         T = data['T']
-        k = data['k']
-        dk = data['dk']
+        rho = data['rho_pcm']
+        drho = data['drho_pcm']
         short = data['short']
         color = burn_colors[short]
 
-        coeffs = np.polyfit(T, k, 1)
         T_fit = np.linspace(T[0] - 50, T[-1] + 50, 200)
-        k_fit = np.polyval(coeffs, T_fit)
+        rho_fit = np.polyval(data['fit_coeffs'], T_fit)
         ftc_pcm = data['ftc_pcm']
+        ftc_err_pcm = data['ftc_err_pcm']
 
-        ax_k.errorbar(T, k, yerr=dk, fmt='o', capsize=5, color=color,
+        ax_k.errorbar(T, rho, yerr=drho, fmt='o', capsize=5, color=color,
                       zorder=5, label=f'{short}  MC ± 1σ')
-        ax_k.plot(T_fit, k_fit, '--', color=color, alpha=0.7,
-                  label=f'{short}  FTC = {ftc_pcm:+.2f} pcm/K')
+        ax_k.plot(T_fit, rho_fit, '--', color=color, alpha=0.7,
+                  label=f'{short}  FTC = {ftc_pcm:+.2f} ± {ftc_err_pcm:.2f} pcm/K')
 
     # Mark the accident temperature boundary
     ax_k.axvline(_T_ACCIDENT, color='darkorange', linestyle=':', linewidth=1.4,
@@ -260,8 +264,8 @@ def _plot_keff_and_ftc(ftc_store: list[dict], output_dir: Path) -> None:
               transform=ax_k.get_xaxis_transform())
 
     ax_k.set_xlabel('Fuel temperature (K)')
-    ax_k.set_ylabel('k-inf')
-    ax_k.set_title('k-inf vs fuel temperature')
+    ax_k.set_ylabel('Reactivity ρ = (k-inf − 1) / k-inf  (pcm)')
+    ax_k.set_title('Reactivity vs fuel temperature')
     ax_k.legend(fontsize=8, loc='upper center', bbox_to_anchor=(0.5, -0.18),
                 ncol=2, frameon=True)
     ax_k.grid(True, alpha=0.3)
@@ -324,7 +328,7 @@ def compute_ftc(dep_h5: Path, output_dir: Path) -> int:
             results[(short, T)] = (k_mean, k_std)
             print(f'    k-inf = {k_mean:.5f} ± {k_std:.5f}')
 
-    # --- Compute FTC via linear regression over 3 temperature points ---
+    # --- Compute FTC via linear regression of reactivity over the temperature sweep ---
     T_arr = np.array(_FUEL_TEMPS)
     exit_code = 0
     ftc_store: list[dict] = []
@@ -341,8 +345,20 @@ def compute_ftc(dep_h5: Path, output_dir: Path) -> int:
     for long_label, short, _ in burnup_configs:
         k_vals = np.array([results[(short, T)][0] for T in _FUEL_TEMPS])
         k_errs = np.array([results[(short, T)][1] for T in _FUEL_TEMPS])
-        slope, _ = np.polyfit(T_arr, k_vals, 1)
-        ftc_pcm = slope * 1e5
+
+        # Reactivity in pcm: ρ = (k − 1)/k × 1e5, σ_ρ = σ_k/k² × 1e5.
+        # The FTC is dρ/dT, so fitting ρ [pcm] vs T [K] gives pcm/K directly
+        # (fitting k instead would overstate/understate it by a factor k²).
+        rho_pcm = (k_vals - 1.0) / k_vals * 1e5
+        rho_errs_pcm = k_errs / k_vals**2 * 1e5
+
+        # Weighted least squares: w_i = 1/σ_i so the fit minimises χ².
+        # cov='unscaled' returns the covariance based purely on the input
+        # weights (MC uncertainties), without rescaling by residuals.
+        w = 1.0 / rho_errs_pcm
+        coeffs, cov = np.polyfit(T_arr, rho_pcm, 1, w=w, cov='unscaled')
+        ftc_pcm = coeffs[0]
+        ftc_err_pcm = np.sqrt(cov[0, 0])
 
         ftc_store.append({
             'long_label': long_label,
@@ -350,13 +366,19 @@ def compute_ftc(dep_h5: Path, output_dir: Path) -> int:
             'T': T_arr,
             'k': k_vals,
             'dk': k_errs,
+            'rho_pcm': rho_pcm,
+            'drho_pcm': rho_errs_pcm,
+            'fit_coeffs': coeffs,
             'ftc_pcm': ftc_pcm,
+            'ftc_err_pcm': ftc_err_pcm,
         })
 
         print(f'\n{long_label}:')
-        for T, k, dk in zip(T_arr, k_vals, k_errs):
-            print(f'  T = {T:6.0f} K   k-inf = {k:.5f} ± {dk:.5f}')
-        print(f'  FTC = {ftc_pcm:+.2f} pcm/K   (linear regression, 3 points)')
+        for T, k, dk, rho, drho in zip(T_arr, k_vals, k_errs, rho_pcm, rho_errs_pcm):
+            print(f'  T = {T:6.0f} K   k-inf = {k:.5f} ± {dk:.5f}   '
+                  f'ρ = {rho:+8.0f} ± {drho:.0f} pcm')
+        print(f'  FTC = {ftc_pcm:+.2f} ± {ftc_err_pcm:.2f} pcm/K   '
+              f'(weighted linear regression, {len(T_arr)} points)')
 
         if ftc_pcm >= 0.0:
             print(f'  *** FAIL *** FTC is positive — Doppler must be negative')

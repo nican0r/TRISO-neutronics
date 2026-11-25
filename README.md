@@ -90,7 +90,7 @@ python scripts/plot_depletion.py
 # Spectral hardening — saves output/spectrum_hardening.png
 python scripts/plot_spectrum.py
 
-# Fuel temperature coefficient / Doppler (~15–30 min, 6 eigenvalue runs)
+# Fuel temperature coefficient / Doppler (~15–30 min, 8 eigenvalue runs)
 # Requires a completed depletion run in output/depletion/
 caffeinate python scripts/doppler_coefficient.py
 
@@ -119,6 +119,6 @@ caffeinate python scripts/manufacturing_tolerance.py
 | BOL k-inf | 1.102 ± 0.001 |
 | EOL k-inf (15% FIMA, 620 EFPD) | 0.925 ± 0.002 |
 | k-inf = 1 crossing | ~290 EFPD (~7% FIMA) |
-| BOL fuel temperature coefficient | −10.0 pcm/K |
-| EOL fuel temperature coefficient | −7.0 pcm/K |
+| BOL fuel temperature coefficient (dρ/dT, 900–1873 K) | −5.57 ± 0.28 pcm/K |
+| EOL fuel temperature coefficient (dρ/dT, 900–1873 K) | −6.08 ± 0.32 pcm/K |
 | Thermal fraction drop (BOL → EOL) | ~50% (spectral hardening from fission product accumulation) |
